@@ -1,0 +1,12 @@
+[project]
+name = "findcar"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy==1.21.2",
+    "opencv-python==4.5.4.58",
+    "pipreqs>=0.5.0",
+    "scikit-learn==1.6.1",
+]
