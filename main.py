@@ -76,39 +76,96 @@ class SimpleDetector:
         edges = cv2.erode(edges, kernel, iterations=1)
         
         # 步骤6: 轮廓检测和筛选
-        contours = self._detect_contours(edges, image, is_small_image)
-        print(f"步骤6完成：检测到 {len(contours)} 个车辆轮廓")
+        vehicle_contours = self._detect_contours(edges, image, is_small_image)
+        print(f"步骤6完成：检测到 {len(vehicle_contours)} 个车辆轮廓")
         
         # 绘制结果
         result_image = image.copy()
-        if contours:
-            for i, (x, y, w, h) in enumerate(contours):
-                # 绘制矩形
-                cv2.rectangle(result_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                
-                # 添加标签
-                cv2.putText(result_image, f'Vehicle {i+1}', (x, max(y-5, 15)), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        contour_image = image.copy()  # 单独的轮廓图像
+        filled_contour_image = np.zeros_like(image)  # 纯轮廓填充图像
+        outline_only_image = np.zeros_like(image)  # 纯轮廓线条图像
+        
+        if vehicle_contours:
+            for i, contour_data in enumerate(vehicle_contours):
+                if 'contour' in contour_data:
+                    # 绘制实际轮廓
+                    contour = contour_data['contour']
+                    x, y, w, h = contour_data['rect']
+                    
+                    # 在结果图像上绘制轮廓
+                    cv2.drawContours(result_image, [contour], -1, (0, 255, 0), 2)
+                    
+                    # 绘制边界矩形（可选，用于对比）
+                    cv2.rectangle(result_image, (x, y), (x + w, y + h), (255, 0, 0), 1)
+                    
+                    # 在轮廓图像上只绘制轮廓
+                    cv2.drawContours(contour_image, [contour], -1, (0, 255, 0), 2)
+                    
+                    # 在纯轮廓图像上绘制填充轮廓
+                    cv2.fillPoly(filled_contour_image, [contour], (0, 255, 0))
+                    
+                    # 在纯线条图像上绘制轮廓线
+                    cv2.drawContours(outline_only_image, [contour], -1, (0, 255, 0), 2)
+                    
+                    # 添加标签
+                    cv2.putText(result_image, f'Vehicle {i+1}', (x, max(y-5, 15)), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                    cv2.putText(contour_image, f'Vehicle {i+1}', (x, max(y-5, 15)), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                    cv2.putText(filled_contour_image, f'Vehicle {i+1}', (x, max(y-5, 15)), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                    cv2.putText(outline_only_image, f'Vehicle {i+1}', (x, max(y-5, 15)), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                else:
+                    # 兜底策略时的矩形绘制
+                    x, y, w, h = contour_data['rect']
+                    cv2.rectangle(result_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                    cv2.rectangle(contour_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                    cv2.rectangle(filled_contour_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                    cv2.rectangle(outline_only_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                    cv2.putText(result_image, f'Vehicle {i+1} (Box)', (x, max(y-5, 15)), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                    cv2.putText(contour_image, f'Vehicle {i+1} (Box)', (x, max(y-5, 15)), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                    cv2.putText(filled_contour_image, f'Vehicle {i+1} (Box)', (x, max(y-5, 15)), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                    cv2.putText(outline_only_image, f'Vehicle {i+1} (Box)', (x, max(y-5, 15)), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
         
         # 保存结果
         if output_path is None:
             base_name = os.path.splitext(image_path)[0]
             output_path = f"{base_name}_result.jpg"
             binary_output_path = f"{base_name}_binary.jpg"
+            contour_output_path = f"{base_name}_contours.jpg"
+            filled_output_path = f"{base_name}_filled.jpg"
+            outline_output_path = f"{base_name}_outline.jpg"
         else:
             binary_output_path = f"{os.path.splitext(output_path)[0]}_binary.jpg"
+            contour_output_path = f"{os.path.splitext(output_path)[0]}_contours.jpg"
+            filled_output_path = f"{os.path.splitext(output_path)[0]}_filled.jpg"
+            outline_output_path = f"{os.path.splitext(output_path)[0]}_outline.jpg"
         
         cv2.imwrite(binary_output_path, edges)
         cv2.imwrite(output_path, result_image)
+        cv2.imwrite(contour_output_path, contour_image)
+        cv2.imwrite(filled_output_path, filled_contour_image)
+        cv2.imwrite(outline_output_path, outline_only_image)
         
         print(f"结果已保存:")
         print(f"  - 二值边缘图: {binary_output_path}")
-        print(f"  - 轮廓检测结果: {output_path}")
+        print(f"  - 检测结果图(带矩形框): {output_path}")
+        print(f"  - 轮廓图: {contour_output_path}")
+        print(f"  - 填充轮廓图: {filled_output_path}")
+        print(f"  - 纯轮廓线图: {outline_output_path}")
         
         return {
-            'contours': contours,
+            'vehicle_contours': vehicle_contours,
             'edges': edges,
             'result': result_image,
+            'contour_image': contour_image,
+            'filled_contour_image': filled_contour_image,
+            'outline_only_image': outline_only_image,
             'thresholds': (low, high)
         }
     
@@ -125,15 +182,17 @@ class SimpleDetector:
             min_area = image_area * 0.05  # 小图像降低面积阈值
             min_width = min(self.width_threshold_min, width * 0.2)
             min_height = min(self.height_threshold_min, height * 0.2)
-            max_aspect_ratio = 3.0  # 宽高比限制
+            max_aspect_ratio = 4.0  # 增加宽高比限制，适应更多车型
+            min_filling_ratio = 0.3  # 添加最小填充率要求
         else:
             min_area = image_area * self.area_min_ratio
             min_width = max(self.width_threshold_min, width * 0.1)
             min_height = max(self.height_threshold_min, height * 0.1)
             max_aspect_ratio = 4.0
+            min_filling_ratio = 0.2
         
         # 筛选有效轮廓
-        valid_contours = []
+        valid_vehicle_contours = []
         for contour in contours:
             x, y, w, h = cv2.boundingRect(contour)
             area = cv2.contourArea(contour)
@@ -150,20 +209,60 @@ class SimpleDetector:
             # 使用多条件筛选
             if (w >= min_width and h >= min_height and 
                 area >= min_area and 
-                aspect_ratio <= max_aspect_ratio):
-                valid_contours.append((x, y, w, h))
+                aspect_ratio <= max_aspect_ratio and
+                filling_ratio >= min_filling_ratio):
+                
+                # 轮廓平滑处理
+                epsilon = 0.02 * cv2.arcLength(contour, True)
+                smoothed_contour = cv2.approxPolyDP(contour, epsilon, True)
+                
+                valid_vehicle_contours.append({
+                    'contour': smoothed_contour,
+                    'original_contour': contour,
+                    'rect': (x, y, w, h),
+                    'area': area,
+                    'filling_ratio': filling_ratio,
+                    'aspect_ratio': aspect_ratio
+                })
         
         # 如果没有检测到有效轮廓，尝试使用整个图像边缘
-        if not valid_contours and np.sum(edges) > 0:
+        if not valid_vehicle_contours and np.sum(edges) > 0:
             if is_small_image:
                 # 对于小图像，假设整个图像是车辆
                 border = 5  # 边界宽度
                 x, y = border, border
                 w, h = width - 2*border, height - 2*border
-                valid_contours.append((x, y, w, h))
+                valid_vehicle_contours.append({
+                    'rect': (x, y, w, h),
+                    'fallback': True  # 标记为兜底策略
+                })
                 print("使用整体检测法识别车辆")
+
+        return valid_vehicle_contours
+
+    def _refine_contour(self, contour, image_shape):
+        """精细化轮廓处理"""
+        # 使用不同的epsilon值进行多级平滑
+        epsilon1 = 0.01 * cv2.arcLength(contour, True)  # 细节保留
+        epsilon2 = 0.02 * cv2.arcLength(contour, True)  # 适度平滑
+        epsilon3 = 0.03 * cv2.arcLength(contour, True)  # 大幅平滑
         
-        return valid_contours
+        # 选择最合适的平滑级别
+        smoothed1 = cv2.approxPolyDP(contour, epsilon1, True)
+        smoothed2 = cv2.approxPolyDP(contour, epsilon2, True)
+        smoothed3 = cv2.approxPolyDP(contour, epsilon3, True)
+        
+        # 根据轮廓复杂度选择合适的平滑级别
+        area = cv2.contourArea(contour)
+        perimeter = cv2.arcLength(contour, True)
+        complexity = perimeter / (2 * np.sqrt(np.pi * area)) if area > 0 else 0
+        
+        if complexity > 2.0:  # 复杂轮廓，使用中等平滑
+            return smoothed2
+        elif complexity > 1.5:  # 中等复杂，使用轻微平滑
+            return smoothed1
+        else:  # 简单轮廓，保持原样或轻微平滑
+            return smoothed1
 
 
 def process_image(image_path, output_path=None, debug=False):
@@ -173,7 +272,7 @@ def process_image(image_path, output_path=None, debug=False):
     
     if result:
         print("\n=== 检测完成 ===")
-        print(f"检测到 {len(result['contours'])} 个车辆轮廓")
+        print(f"检测到 {len(result['vehicle_contours'])} 个车辆轮廓")
         return True
     return False
 
@@ -182,7 +281,7 @@ def process_directory(directory, debug=False):
     """处理目录中的所有图像"""
     image_files = [f for f in os.listdir(directory) 
                   if f.lower().endswith(('.jpg', '.jpeg', '.png')) and 
-                  not any(keyword in f.lower() for keyword in ['binary', 'result', 'detected'])]
+                  not any(keyword in f.lower() for keyword in ['binary', 'result', 'contours', 'filled', 'outline'])]
     
     if not image_files:
         print("未找到图像文件")
